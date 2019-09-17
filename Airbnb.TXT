@@ -1,0 +1,171 @@
+# The datatype of every column looks good except last_review which is of type double instead of date.
+
+# AB_NYC_2019_1$last_review <- as.Date(AB_NYC_2019_1$last_review)
+# class(AB_NYC_2019_1$last_review)
+
+# As of now the below column does not play any part. Hence we can remove it.
+
+AB_NYC_2019_1$last_review <- NULL
+
+
+# By observing the summary we can see that certain columns contains a lot of NA's.
+
+summary(AB_NYC_2019_1)
+
+# By exactly knowing how many obervation contains NA's we can select the right imputation method
+
+AB_comp <- AB_NYC_2019_1[complete.cases(AB_NYC_2019_1),]
+print(AB_comp)
+
+# So roughly 20 % of the observarions contains the missing values.Hence
+# cannot remove it from the dataset.
+
+# Machine learning for NA removal
+library(mice)
+
+# Distribution of the missing values
+md.pattern(AB_NYC_2019_1)
+
+# Using the mice function
+mymice <- mice(AB_NYC_2019_1, m=5, method = 'rf')
+
+# The result has class mids
+class(mymice)
+
+mymice$imp
+
+# Fill the NA's
+ABmicecomplete <- complete(mymice,4)
+summary(ABmicecomplete)
+
+# To check if any NA's .There are still NA's in the name and host_name column which is fine for the time being.
+any(is.na(ABmicecomplete))
+md.pattern(ABmicecomplete)
+
+
+# By analyzing data,boxplots and summary the below attributes have outliers in them.
+
+boxplot(ABmicecomplete$minimum_nights,horizontal = TRUE)
+boxplot(ABmicecomplete$calculated_host_listings_count,horizontal = TRUE)
+
+# Removing the outliers.
+
+ABclean <- ABmicecomplete[ABmicecomplete$minimum_nights < 600 & ABmicecomplete$calculated_host_listings_count <200,]
+
+# Summary of ABclean
+
+summary(ABclean)
+
+# Scatterplot on the cleaned datasets between price and number of views.
+
+# CLearly no relationship between the two variables.
+
+attach(ABclean)
+plot(number_of_reviews, price, main="Relationship",
+     xlab="Number of Reviews ", ylab="Price")
+
+
+
+# Some data analysis using data.table
+library(data.table)
+ABclean <- data.table(ABclean)
+class(ABclean)
+ABclean
+ABmanp <- ABclean[, mean(price), by = neighbourhood_group][order(V1)]
+ABmanp
+
+#From the above we see that the average prices of houses in manhatten are quite high and
+# in bronx it is quite low. Therfore lets analyze how.
+
+
+
+ABmanp1 <- ABclean[, .(.N,mean(price)), by = .(neighbourhood_group,room_type)][order(V2)]
+ABmanp1
+
+
+#From the above we observe that number of entire home in manhatten is causing the avg price 
+#to shoot up as the cost of entire home is higher and that is what causing a significant decrease
+#in bronx avg price as well.
+
+
+
+
+
+
+# Multiple Linear regression 
+
+
+unique(ABclean$neighbourhood_group)
+
+# Encoding categorical data in order to do computation using regressor.
+
+ABclean$neighbourhood_group <- factor(ABclean$neighbourhood_group,
+                                      levels = c("Brooklyn","Manhattan","Queens","Staten Island","Bronx"),
+                                      labels = c(1,2,3,4,5))
+ABclean
+
+
+ABclean$room_type <- factor(ABclean$room_type,
+                                      levels = c("Private room","Entire home/apt","Shared room"),
+                                      labels = c(5,6,7))
+unique(ABclean$room_type)
+ABclean
+
+#Splitting the dataset into training set and test set
+
+library(caTools)
+set.seed(123)
+split =sample.split(ABclean$price,SplitRatio = 0.8)
+training_set = subset(ABclean,split == TRUE)
+test_set = subset(ABclean,split == FALSE)
+
+
+
+#Fitting multiple Linear regression to the training set.
+
+regressor = lm(formula = price ~ minimum_nights +number_of_reviews+reviews_per_month+calculated_host_listings_count+availability_365,
+               data = training_set)
+
+summary(regressor)
+
+regressor_1 = lm(formula = price ~ minimum_nights +number_of_reviews+reviews_per_month+availability_365,
+               data = training_set) 
+summary(regressor_1)
+
+regressor_2 = lm(formula = price ~ latitude + longitude + number_of_reviews+availability_365+neighbourhood_group + room_type,
+                 data = training_set) 
+summary(regressor_2)
+
+# From the above we can observe that all the variables in regressor_2 has a significant effect on price.
+
+
+
+# Now predicting the test set results
+y_pred = predict(regressor_2,test_set)
+y_pred
+
+# Building optimal model with multiple regression.
+
+# opt_regr = lm(formula = price ~ host_id + latitude + longitude + minimum_nights + reviews_per_month + calculated_host_listings_count + number_of_reviews+availability_365+neighbourhood_group + room_type,
+#                  data = training_set) 
+# summary(opt_regr)
+# 
+# 
+# opt_regr = lm(formula = price ~ host_id + latitude + longitude +  reviews_per_month + calculated_host_listings_count + number_of_reviews+availability_365+neighbourhood_group + room_type,
+#               data = training_set) 
+# summary(opt_regr)
+
+opt_regr = lm(formula = price ~ host_id + latitude + longitude +  reviews_per_month + calculated_host_listings_count + number_of_reviews+availability_365 + room_type,
+              data = training_set) 
+summary(opt_regr)
+
+
+
+
+y_pred = predict(opt_regr,test_set)
+y_pred
+
+
+
+
+
