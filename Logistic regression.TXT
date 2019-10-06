@@ -1,0 +1,159 @@
+Performing logistic regression to predict whether a loan would be approved or not.
+
+# Observing the dataset variables
+import pandas as pd
+train = pd.read_csv("train_ctrUa4K.csv")
+#test = pd.read_csv("test_lAUu6dG.csv")
+print(train.dtypes)
+print(train.shape)
+print(train.info())
+print(train.describe())
+
+# Performing univariate analysis only on the dependent variable i.e. Laon status.
+train['Loan_Status'].value_counts(normalize = True)
+
+# =============================================================================
+# We can observe from the below figures that 68% of the people got their loan approved.
+# Y    0.687296
+# N    0.312704
+# =============================================================================
+import seaborn as sns  
+sns.distplot(train['ApplicantIncome'])
+
+#It can be inferred that most of the data in the distribution of applicant 
+#income is towards left which means it is not normally distributed
+
+train.boxplot(column='ApplicantIncome', by = 'Education')
+
+#Higher education implies higher income.
+
+sns.distplot(train['CoapplicantIncome'])
+
+#Distribution same as applicant income.
+
+
+#Lets observe heat map for quick bivariate analysis
+import seaborn as sns
+data=train.corr()
+sns.heatmap(data,square=True,cmap="BuPu")
+
+#We can observe that there is strong correlation with loan amount and applicant income.
+
+
+#Finding the null values for imputation.
+print(train.isnull().sum())
+print(train.isnull().any(axis=1).sum())
+
+#So we can see that there are 134 rows with null values which is quite significant.
+
+
+#The below function fills all the null values in the train dataset with the relevant data.
+def function(names):
+    for i in train.columns:
+        
+        
+        if isinstance(train[i],int) or isinstance(train[i],float):
+        
+            mean_val = train[i].mean(axis=0)
+            train[i]=train[i].fillna(mean_val)
+        elif isinstance(train[i],object):
+            mode_val=train[i].mode()[0]
+            train[i]=train[i].fillna(mode_val)
+            
+#    print(train.isnull().any(axis=1).sum())
+    return train.isnull()
+
+
+function(train.columns)
+
+
+
+#Data in the loan amount is not normally distributed and to achieve this we can apply 
+#log transformation on it.
+import seaborn as sns  
+import numpy as np
+sns.distplot(train['LoanAmount'])
+train['LoanAmount'] = np.log(train['LoanAmount'])
+sns.distplot(train['LoanAmount'])
+train['LoanAmount'].hist(bins=20)
+#test['LoanAmount'] = np.log(test['LoanAmount'])
+train.drop('LoanAmount',axis = 1,inplace= True)
+#test.drop('LoanAmount',axis = 1,inplace= True)
+
+#Dropping loan id as it does not have any effect on the dependent variable.
+train=train.drop('Loan_ID',axis=1) 
+#test=test.drop('Loan_ID',axis=1)
+print(train)
+#print(test)
+
+ 
+#test=pd.get_dummies(test)
+
+# =============================================================================
+# print(train)
+# 
+# X_train = train.iloc[:,:-2]
+# Y_train = train.iloc[:,[-1,-2]]
+# 
+# #Fitting multiple regression model to the training set
+# from sklearn.linear_model import LinearRegression
+# regressor = LinearRegression()
+# regressor.fit(X_train,Y_train)
+# y_pred = regressor.predict(test)
+# =============================================================================
+
+train['Loan_Status'] = train['Loan_Status'].map({'Y': 1, 'N': 0})
+
+X = train.iloc[:,:-2]
+Y = train.iloc[:,-1]
+
+X=pd.get_dummies(X)
+
+
+
+
+
+#train=pd.get_dummies(train)
+#Splitting the dataset into trainnig set and test set
+import sklearn
+from sklearn.model_selection import train_test_split
+X_train,X_test,Y_train,Y_test = train_test_split(X,Y,test_size=0.2)
+
+
+
+#Feature scaling
+from sklearn.preprocessing import StandardScaler
+sc_X =StandardScaler()
+X_train = sc_X.fit_transform(X_train)
+X_test = sc_X.fit_transform(X_test)            
+        
+#Fitting logistic regression into the training set
+from sklearn.linear_model import LogisticRegression
+classifier = LogisticRegression()
+classifier.fit(X_train,Y_train)
+
+#Prdeicting the test set result
+Y_pred = classifier.predict(X_test)
+
+#Making the confusion Matrix
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+cm = confusion_matrix(Y_test,Y_pred)
+
+
+#The output below suggests that we have made 108 correct predictions out of 123.
+# =============================================================================
+# cm
+# Out[62]: 
+# array([[16, 13],
+#        [ 2, 92]], dtype=int64)
+# =============================================================================
+
+accuracy_score(Y_test,Y_pred)
+
+#Thus we have prepared a model which predicts the target value with 87.8% accuracy.
+
+# =============================================================================
+# accuracy_score(Y_test,Y_pred)
+# Out[64]: 0.8780487804878049
+# =============================================================================
