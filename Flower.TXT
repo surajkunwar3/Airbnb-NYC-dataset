@@ -1,0 +1,47 @@
+# Reporting initial information about the dataset.
+summary(FlowerPicks)
+#We observe that score and time column have some NA's in them. Hence try to get rid of them in the 
+#optimal way.
+
+#Lets go for machine learning for NA removal.
+library(mice)
+#Distribution of the missing values.
+md.pattern(FlowerPicks)
+
+#We observe that 5475 rows have no missing values and we have 27 missing values.
+
+#Using the mice function.
+mymice <- mice(FlowerPicks,m = 5, method = "rf")
+
+class(mymice)
+
+#Filling the NA's with the 5th observation. After that no missing values left in observation.
+mymicecomplete <- complete(mymice,5)
+summary(mymicecomplete)
+
+#Now we can start analyzing it. There are high and low scores but the time variable is different
+#for each one of them.Hence the ration of score/time will give us better indication about performance
+
+#Making a new column for analyses.
+
+flower <- data.table(mymicecomplete)
+flower <- flower[,performance := Score/Time][order(performance)]
+flower
+
+#Interpretations
+head(flower,1)
+tail(flower,1)
+
+#From the above we can see that sandra performed the worst and gunner performed the best.
+
+
+#Performing linear model on our dataset.
+
+model <- lm(performance ~ Score + Time,flower)
+model
+summary(model)
+
+#So from the above models we can see that both the parameters have an important significance
+#on the output. Moreover for every 1% increase in score the performance increases by an average
+#of 0.09% and the same decreases by nearly 5% for every 1% increase in time.
+
